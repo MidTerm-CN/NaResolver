@@ -234,6 +234,8 @@ namespace VmGeneralType
 		static Thread Current();
 
 		void Detach() const;
+
+		bool IsVmThread() const;
 	};
 }
 
@@ -476,7 +478,7 @@ namespace Template
 		template<int32_t OtherLen>
 		consteval auto Concat(const StringLiteral<OtherLen>& other) const
 		{
-			char combined[Len + OtherLen - 1]; // -1 to avoid double null termination
+			char combined[Len + OtherLen - 1];
 			std::copy_n(Chars, Len - 1, combined);
 			std::copy_n(other.Chars, OtherLen, combined + Len - 1);
 			return StringLiteral<Len + OtherLen - 1>(combined);
@@ -942,6 +944,12 @@ void VmGeneralType::Thread::Detach() const
 	thread_detach(thread);
 }
 
+bool VmGeneralType::Thread::IsVmThread() const
+{
+	static Template::VmMethodInvoker<bool, void*> is_vm_thread = TEXT("il2cpp_is_vm_thread");
+	return is_vm_thread(thread);
+}
+
 void NaResolver::Class::AddNestedClass(const std::string name, const Class& klass)
 {
 	nestedClasses.insert({ name, klass });
@@ -1000,6 +1008,8 @@ void NaResolver::ContextCache::Clear()
 
 bool NaResolver::Setup()
 {
+	while (!VmGeneralType::Thread(nullptr).IsVmThread())
+		Sleep(50);
 	domain = VmGeneralType::Domain::Get();
 	if (domain == nullptr)
 	{
